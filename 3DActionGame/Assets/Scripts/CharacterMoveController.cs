@@ -10,6 +10,14 @@ public class CharacterMoveController : MonoBehaviour
     private CharacterController m_characterController = null;
     private float m_turnSmoothVerocity = 0f;
     private float m_turnSmoothTime = 0.1f;
+
+    private float m_gravityValue = -9.81f;
+    private Vector3 m_playerGravityVelocity = Vector3.zero;
+    private bool m_jumpFlag = false;
+    private bool m_PunchFlag = false;
+    private bool m_PunchFlag2 = false;
+    private bool m_PunchFlag3 = false;
+
     // Start is called before the first frame update
     private void Start()
     {
@@ -23,20 +31,65 @@ public class CharacterMoveController : MonoBehaviour
     {
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
+        m_jumpFlag = Input.GetKeyDown(KeyCode.V);
+        m_PunchFlag = Input.GetKeyDown(KeyCode.Z);
+        m_PunchFlag2 = Input.GetKeyDown(KeyCode.X);
+        m_PunchFlag3 = Input.GetKeyDown(KeyCode.C);
+        
         Move(h, v);
     }
     private void Move(float horizontal, float vertical)
     {
-        m_direction = new Vector3(horizontal, 0, vertical).normalized;
-        if (m_direction.magnitude >= 0.1f)
+
+        if (m_PunchFlag3 && m_characterController.isGrounded)
         {
-            var targetAngle = Mathf.Atan2(m_direction.x, m_direction.z) * Mathf.Rad2Deg;
+            m_animator.SetTrigger("Punch3");
+            m_PunchFlag3 = false;
+        }
+        if (m_PunchFlag2 && m_characterController.isGrounded)
+        {
+            m_animator.SetTrigger("Punch2");
+            m_PunchFlag2 = false;
+        }
+        if (m_PunchFlag && m_characterController.isGrounded)
+        {
+            
+            m_animator.SetTrigger("Punch");
+           
+            m_PunchFlag = false;
+        }
+        if (m_jumpFlag && m_characterController.isGrounded)
+        {
+            m_playerGravityVelocity.y = 6;
+            m_animator.SetTrigger("Jump");
+            m_characterController.Move(m_playerGravityVelocity * Time.deltaTime);
+            m_jumpFlag = false;
+        }
+        var cameraForward = Camera.main.transform.forward;
+        cameraForward.y = 0;
+        cameraForward = cameraForward.normalized;
+        if (cameraForward.sqrMagnitude < 0.01f)
+            return;
+
+        Quaternion inputFrame = Quaternion.LookRotation(cameraForward, Vector3.up);
+        var input = new Vector3(horizontal, 0, vertical);
+        var cameraFromPlayer = inputFrame * input;
+
+        if (cameraFromPlayer.sqrMagnitude >= 0.1f)
+        {
+            var targetAngle = Mathf.Atan2(cameraFromPlayer.x, cameraFromPlayer.z) * Mathf.Rad2Deg;
             var angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref m_turnSmoothVerocity, m_turnSmoothTime);
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
-            m_characterController.Move(m_direction * Speed * Time.deltaTime);
+            m_characterController.Move(cameraFromPlayer * Speed * Time.deltaTime);
         }
-        m_animator.SetFloat("FrontVelocity", m_direction.magnitude);
-    }
+        m_playerGravityVelocity.y += m_gravityValue * Time.deltaTime;
+        m_characterController.Move(m_playerGravityVelocity * Time.deltaTime);
+
+        m_animator.SetFloat("FrontVelocity", cameraFromPlayer.magnitude);
+
+        }
+   
+
     public void FootR()
     {
 
