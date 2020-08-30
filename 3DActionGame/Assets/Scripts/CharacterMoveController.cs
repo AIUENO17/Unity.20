@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
 public class CharacterMoveController : MonoBehaviour
 {
@@ -18,6 +19,8 @@ public class CharacterMoveController : MonoBehaviour
     private bool m_PunchFlag2 = false;
     private bool m_PunchFlag3 = false;
 
+    private bool m_canWalk = true;
+
     // Start is called before the first frame update
     private void Start()
     {
@@ -35,11 +38,27 @@ public class CharacterMoveController : MonoBehaviour
         m_PunchFlag = Input.GetKeyDown(KeyCode.Z);
         m_PunchFlag2 = Input.GetKeyDown(KeyCode.X);
         m_PunchFlag3 = Input.GetKeyDown(KeyCode.C);
-        
+
         Move(h, v);
     }
     private void Move(float horizontal, float vertical)
     {
+        if (m_PunchFlag)
+        {
+            m_animator.SetTrigger("Punch");
+            StartCoroutine(StopWalk("Punch"));
+        }
+        if (m_PunchFlag2)
+        {
+            m_animator.SetTrigger("Punch2");
+            StartCoroutine(StopWalk("Punch2"));
+        }
+        if (m_PunchFlag3)
+        {
+            m_animator.SetTrigger("Punch3");
+            StartCoroutine(StopWalk("Punch3"));
+        }
+
 
         if (m_PunchFlag3 && m_characterController.isGrounded)
         {
@@ -53,9 +72,9 @@ public class CharacterMoveController : MonoBehaviour
         }
         if (m_PunchFlag && m_characterController.isGrounded)
         {
-            
+
             m_animator.SetTrigger("Punch");
-           
+
             m_PunchFlag = false;
         }
         if (m_jumpFlag && m_characterController.isGrounded)
@@ -65,30 +84,39 @@ public class CharacterMoveController : MonoBehaviour
             m_characterController.Move(m_playerGravityVelocity * Time.deltaTime);
             m_jumpFlag = false;
         }
-        var cameraForward = Camera.main.transform.forward;
-        cameraForward.y = 0;
-        cameraForward = cameraForward.normalized;
-        if (cameraForward.sqrMagnitude < 0.01f)
-            return;
-
-        Quaternion inputFrame = Quaternion.LookRotation(cameraForward, Vector3.up);
-        var input = new Vector3(horizontal, 0, vertical);
-        var cameraFromPlayer = inputFrame * input;
-
-        if (cameraFromPlayer.sqrMagnitude >= 0.1f)
+        if (m_canWalk)
         {
-            var targetAngle = Mathf.Atan2(cameraFromPlayer.x, cameraFromPlayer.z) * Mathf.Rad2Deg;
-            var angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref m_turnSmoothVerocity, m_turnSmoothTime);
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
-            m_characterController.Move(cameraFromPlayer * Speed * Time.deltaTime);
-        }
-        m_playerGravityVelocity.y += m_gravityValue * Time.deltaTime;
-        m_characterController.Move(m_playerGravityVelocity * Time.deltaTime);
 
-        m_animator.SetFloat("FrontVelocity", cameraFromPlayer.magnitude);
 
+            var cameraForward = Camera.main.transform.forward;
+            cameraForward.y = 0;
+            cameraForward = cameraForward.normalized;
+            if (cameraForward.sqrMagnitude < 0.01f)
+                return;
+
+            Quaternion inputFrame = Quaternion.LookRotation(cameraForward, Vector3.up);
+            var input = new Vector3(horizontal, 0, vertical);
+            var cameraFromPlayer = inputFrame * input;
+
+            if (cameraFromPlayer.sqrMagnitude >= 0.1f)
+            {
+                var targetAngle = Mathf.Atan2(cameraFromPlayer.x, cameraFromPlayer.z) * Mathf.Rad2Deg;
+                var angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref m_turnSmoothVerocity, m_turnSmoothTime);
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+                m_characterController.Move(cameraFromPlayer * Speed * Time.deltaTime);
+            }
+            if (!m_jumpFlag && !m_characterController.isGrounded)
+            {
+                m_playerGravityVelocity.y += m_gravityValue * Time.deltaTime * 2;
+                m_characterController.Move(m_playerGravityVelocity * Time.deltaTime);
+
+            }
+            m_playerGravityVelocity.y += m_gravityValue * Time.deltaTime;
+            m_characterController.Move(m_playerGravityVelocity * Time.deltaTime);
+
+            m_animator.SetFloat("FrontVelocity", cameraFromPlayer.magnitude);
         }
-   
+    }
 
     public void FootR()
     {
@@ -98,4 +126,15 @@ public class CharacterMoveController : MonoBehaviour
     {
 
     }
+    private IEnumerator StopWalk(string animatorName)
+    {
+        m_canWalk = false;
+        yield return new WaitWhile(() => !m_animator.GetCurrentAnimatorStateInfo(0).IsName(animatorName));
+        yield return new WaitWhile(() => m_animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f);
+        m_canWalk = true;
+    }
+
+
+
+
 }
